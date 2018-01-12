@@ -8,7 +8,7 @@ namespace AircraftSimulator
     static class Aircraft
     {
 		public static bool ReachedMaxSpeed { get; private set; } = false; // индикатор достижения максимальной скорости
-		public static bool Landed { get; private set; } = false;          // индикатор завершения полета
+		public static bool Landed { get; private set; } = false;          // индикатор успешного приземления
 
 		/// <summary>
 		/// Если полет завершен, меняет значение Landed на true
@@ -72,8 +72,7 @@ namespace AircraftSimulator
 					MessageToPilot = "Невозможно изменить высоту при нулевой скорости.";
 				}
 
-				// передача диспетчерам информации о полете:
-				reportFlightDetails();
+				reportFlightDetails();  // передача диспетчерам информации о полете
 
 				CheckIfLanded();
 			}
@@ -104,7 +103,7 @@ namespace AircraftSimulator
                 
             PointsFromRemovedDispatchers += dispatchers[index].Points;  // сохранить штрафные очки от удаляемого диспетчера
 			reportFlightDetails -= dispatchers[index].CheckFlight;  // отписка удаляемого диспетчера от изменения данных полета
-            dispatchers.RemoveAt(index);  // удалить
+            dispatchers.RemoveAt(index);  // удаление диспетчера
         }
 
         public static int PointsFromRemovedDispatchers { get; private set; } = 0;
@@ -128,7 +127,7 @@ namespace AircraftSimulator
 				if (points >= 1000)
 				{
 					MessageToPilot = "Непригоден к полетам";
-					// Исключение "Непригоден к полетам"
+					throw new Exception($"Пилот непригоден к полетам, т.к. набрал 1000 штрафных очков от диспетчера {Name}.");
 				}
 			}
 		}
@@ -159,7 +158,7 @@ namespace AircraftSimulator
 			if (difference > 1000)
 			{
 				MessageToPilot = "Самолет разбился";
-				// Исключение "самолет разбился"
+				throw new Exception($"Самолет разбился, т.к. пилот игнорировал указания диспетчера {Name}.");
 			}
 			else if (difference >= 600)
 			{
@@ -185,7 +184,7 @@ namespace AircraftSimulator
 			if (Aircraft.Speed == 0 && Aircraft.Altitude > 0)
             {
 				MessageToPilot = "Самолет разбился";
-				// Исключение "самолет разбился"
+				throw new Exception("Самолет разбился, т.к. сбросил скорость до 0.");
 			}
 
 			CalculateRecommendedAltitude();
@@ -195,6 +194,64 @@ namespace AircraftSimulator
 
     static class ConsoleUserInterface
     {
+
+		/// <summary>
+		/// Подготовка к полету
+		/// </summary>
+		public static void Start()
+		{
+			Console.Title = "Тренажер пилота самолета";
+			Console.SetWindowSize(105, 25);
+			Console.SetBufferSize(105, 25);
+			Console.WriteLine("\nВас приветствует тренажер пилота самолета.\n");
+			Console.Write("Введите имя первого диспетчера: ");
+			string dispatcher1 = Console.ReadLine();
+			Console.Write("Введите имя второго диспетчера: ");
+			string dispatcher2 = Console.ReadLine();
+			Aircraft.AddDispatcher(dispatcher1);
+			Aircraft.AddDispatcher(dispatcher2);
+			PrintFlightInfo();
+		}
+
+		/// <summary>
+		/// Вывод всей информации о полете и рекомендаций диспетчеров
+		/// </summary>
+		public static void PrintFlightInfo()
+		{
+			Console.Clear();
+			Console.WriteLine("-------------------------для управления используйте следующие клавиши:--------------------------");
+			Console.WriteLine("  СНИЗИТЬ СКОРОСТЬ:   |  УВЕЛИЧИТЬ СКОРОСТЬ:   |    СНИЗИТЬ ВЫСОТУ:     |   УВЕЛИЧИТЬ ВЫСОТУ:   ");
+			Console.WriteLine("     LEFT на  50 км/ч |      RIGHT на  50 км/ч |      DOWN на 250 м     |      UP на 250 м      ");
+			Console.WriteLine("CTRL+LEFT на 150 км/ч | CTRL+RIGHT на 150 км/ч | CTRL+DOWN на 500 м     | CTRL+UP на 500 м      ");
+			Console.WriteLine("------------------------------------------------------------------------------------------------");
+			Console.WriteLine("  A - добавить диспетчера     R - удалить диспетчера     Esc - выход");
+			Console.WriteLine("------------------------------------------------------------------------------------------------\n");
+			Console.ForegroundColor = ConsoleColor.Green;
+			Console.WriteLine("                СКОРОСТЬ ПОЛЕТА: {0, 4} км/ч           ВЫСОТА ПОЛЕТА: {1, 5} м\n",
+				Aircraft.Speed, Aircraft.Altitude);
+			Console.ResetColor();
+			Console.WriteLine("------------------------------------------------------------------------------------------------");
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.WriteLine(Aircraft.MessageToPilot);
+			Aircraft.MessageToPilot = "";
+			Console.ResetColor();
+			Console.WriteLine("------------------------------------------------------------------------------------------------\n");
+
+			// Вывод списка диспетчеров, их рекомендаций, штрафных очков и суммы штрафных очков:
+			int TotalPoints = 0, count = 1;
+			foreach (Dispatcher dispatcher in Aircraft.dispatchers)
+			{
+				Console.WriteLine("Диспетчер {0, 2}: {1, -10} | Штрафные очки: {2, 4} | Рекомендуемая высота: {3, 5} м | {4}",
+					count, dispatcher.Name, dispatcher.Points, dispatcher.RecommendedAltitude, dispatcher.MessageToPilot);
+				//dispatcher.MessageToPilot = "";
+				TotalPoints += dispatcher.Points;
+				++count;
+			}
+
+			Console.WriteLine("\nОбщее количество штрафных очков: {0}\n",
+				TotalPoints + Aircraft.PointsFromRemovedDispatchers);
+		}
+
 		/// <summary>
 		/// Все возможные команды пользователя
 		/// </summary>
@@ -248,66 +305,9 @@ namespace AircraftSimulator
         }
 
 		/// <summary>
-		/// Вывод всей информации о полете и рекомендаций диспетчеров
-		/// </summary>
-        public static void PrintFlightInfo()
-        {
-            Console.Clear();
-            Console.WriteLine("-------------------------для управления используйте следующие клавиши:--------------------------");
-            Console.WriteLine("  СНИЗИТЬ СКОРОСТЬ:   |  УВЕЛИЧИТЬ СКОРОСТЬ:   |    СНИЗИТЬ ВЫСОТУ:     |   УВЕЛИЧИТЬ ВЫСОТУ:   ");
-            Console.WriteLine("     LEFT на  50 км/ч |      RIGHT на  50 км/ч |      DOWN на 250 м     |      UP на 250 м      ");
-            Console.WriteLine("CTRL+LEFT на 150 км/ч | CTRL+RIGHT на 150 км/ч | CTRL+DOWN на 500 м     | CTRL+UP на 500 м      ");
-            Console.WriteLine("------------------------------------------------------------------------------------------------");
-            Console.WriteLine("  A - добавить диспетчера     R - удалить диспетчера     Esc - выход");
-            Console.WriteLine("------------------------------------------------------------------------------------------------\n");
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("                СКОРОСТЬ ПОЛЕТА: {0, 4} км/ч           ВЫСОТА ПОЛЕТА: {1, 5} м\n",
-                Aircraft.Speed, Aircraft.Altitude);
-            Console.ResetColor();
-            Console.WriteLine("------------------------------------------------------------------------------------------------");
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(Aircraft.MessageToPilot);
-			Aircraft.MessageToPilot = "";
-			Console.ResetColor();
-            Console.WriteLine("------------------------------------------------------------------------------------------------\n");
-
-			// Вывод списка диспетчеров, их рекомендаций, штрафных очков и суммы штрафных очков:
-            int TotalPoints = 0, count = 1;
-            foreach (Dispatcher dispatcher in Aircraft.dispatchers)
-            {
-                Console.WriteLine("Диспетчер {0, 2}: {1, -10} | Штрафные очки: {2, 4} | Рекомендуемая высота: {3, 5} м | {4}",
-                    count, dispatcher.Name, dispatcher.Points, dispatcher.RecommendedAltitude, dispatcher.MessageToPilot);
-				//dispatcher.MessageToPilot = "";
-				TotalPoints += dispatcher.Points;
-                ++count;
-            }
-
-            Console.WriteLine("\nОбщее количество штрафных очков: {0}\n",
-                TotalPoints + Aircraft.PointsFromRemovedDispatchers);
-        }
-
-		/// <summary>
-		/// Подготовка к полету
-		/// </summary>
-        public static void Start()
-        {
-            Console.Title = "Тренажер пилота самолета";
-            Console.SetWindowSize(105, 25);
-            Console.SetBufferSize(105, 25);
-            Console.WriteLine("\nВас приветствует тренажер пилота самолета.\n");
-            Console.Write("Введите имя первого диспетчера: ");
-            string dispatcher1 = Console.ReadLine();
-            Console.Write("Введите имя второго диспетчера: ");
-            string dispatcher2 = Console.ReadLine();
-            Aircraft.AddDispatcher(dispatcher1);
-            Aircraft.AddDispatcher(dispatcher2);
-            PrintFlightInfo();
-        }
-
-		/// <summary>
 		/// Управляет процессом полета, выполняя указания пользователя (пилота)
 		/// </summary>
-		public static bool Flight()
+		public static void Flight()
 		{
 			do
 			{
@@ -348,16 +348,18 @@ namespace AircraftSimulator
 						Aircraft.RemoveDispatcher(index - 1);
 						break;
 					case UserCommands.Exit:
-						Console.WriteLine("Выход из программы. Полет не завершен.");
-						return false;
+						Console.WriteLine("Полет не завершен.");
+						return;
 				}
 
 				ConsoleUserInterface.PrintFlightInfo();
 
 			} while (!Aircraft.Landed);
 
+			Console.ForegroundColor = ConsoleColor.Green;
 			Console.WriteLine("Полет успешно завершен!");
-			return true;
+			Console.ResetColor();
+			return;
 		} 
 
     }
@@ -367,13 +369,24 @@ namespace AircraftSimulator
     {
         static void Main(string[] args)
         {
-            ConsoleUserInterface.Start();
-
-			ConsoleUserInterface.Flight();
-
-			Console.WriteLine();
-
-            // После завершения полета просуммировать все штрафные очки по всем диспетчерам
+			try
+			{
+				ConsoleUserInterface.Start();
+				ConsoleUserInterface.Flight();
+				Console.WriteLine();
+			}
+			catch (Exception e)
+			{
+				ConsoleUserInterface.PrintFlightInfo();
+				Console.ForegroundColor = ConsoleColor.Red;
+				Console.WriteLine(e.Message);
+				Console.WriteLine("Полет завершен неудачно.");
+				Console.ResetColor();
+			}
+			finally
+			{
+				Console.WriteLine("Завершение работы программы.\n");
+			}
 
         }
 
